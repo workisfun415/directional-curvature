@@ -1,0 +1,24 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+title: "Directional curvature recovery: reproduction code"
+authors:
+  - family-names: Pasupuleti
+    given-names: Ramakrishna
+    orcid: "https://orcid.org/0009-0008-8418-1430"
+    affiliation: "Independent Researcher, Suryapet, India"
+version: "1.0.0"
+date-released: "2026-08-06"
+license: MIT
+doi: "10.5281/zenodo.21793101"
+repository-code: "https://github.com/workisfun415/directional-curvature"
+abstract: >-
+  Reproduction code for the manuscript "Geometry, conditioning, and limits of
+  one-sided directional curvature recovery". Produces every theorem
+  verification, both comparison tables and all figures, together with symbolic
+  verification of the algebraic steps in the proofs.
+keywords:
+  - Hessian recovery
+  - one-sided finite differences
+  - spherical harmonics
+  - condition number
+  - derivative-free optimization
