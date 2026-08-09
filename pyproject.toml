@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "dircurv"
-version = "0.2.0"
+version = "0.3.0"
 description = "Directional curvature measurement under restricted sampling, with reliability reporting"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -21,9 +21,14 @@ classifiers = [
 ]
 dependencies = ["numpy>=1.22"]
 
+[project.scripts]
+dircurv = "dircurv.__main__:main"
+
 [project.optional-dependencies]
 paper = ["matplotlib>=3.6", "sympy>=1.12", "scipy>=1.9"]
-dev = ["pytest>=7", "matplotlib>=3.6", "sympy>=1.12", "scipy>=1.9"]
+io = ["nibabel>=4.0", "scipy>=1.9"]
+dev = ["pytest>=7", "matplotlib>=3.6", "sympy>=1.12", "scipy>=1.9",
+       "nibabel>=4.0"]
 
 [project.urls]
 Homepage = "https://github.com/workisfun415/directional-curvature"

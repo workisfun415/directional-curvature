@@ -33,19 +33,29 @@ Quick start
     field = GridField(array, spacing=0.002, mask=mask)
     maps = reliability_maps(field, m=16, sigma=1e-4)
 
+There is also a command line, so a measured volume can be processed without
+writing any code:
+
+    python -m dircurv volume.nii.gz --mask brain.nii.gz --sigma-relative 0.01 \
+        --out maps/ --coverage-only        # check what is measurable first
+    python -m dircurv volume.nii.gz --mask brain.nii.gz --sigma-relative 0.01 \
+        --out maps/
+
 Before relying on the output, read `dircurv.analytic.when_not_to_use()`.
 """
-__version__ = "0.2.0"
+__version__ = "0.3.0"
 
-from . import analytic, grid2d, grid3d   # noqa: F401
+from . import analytic, grid2d, grid3d, io   # noqa: F401
 from .analytic import Geometry, measure, when_not_to_use, kappa_reference  # noqa: F401
 from .grid2d import (GridField, MaskSupportError, measure_pixel,  # noqa: F401
                      reliability_maps)
 from .grid3d import (VolumeField, MaskSupportError3D,  # noqa: F401
                      measure_voxel, reliability_volumes, coverage_fraction)
+from .io import load_field, load_mask, save_maps, describe  # noqa: F401
 
 __all__ = ["analytic", "grid2d", "grid3d", "Geometry", "measure",
            "when_not_to_use", "kappa_reference", "GridField",
            "MaskSupportError", "measure_pixel", "reliability_maps",
            "VolumeField", "MaskSupportError3D", "measure_voxel",
-           "reliability_volumes", "coverage_fraction", "__version__"]
+           "reliability_volumes", "coverage_fraction", "io", "load_field",
+           "load_mask", "save_maps", "describe", "__version__"]

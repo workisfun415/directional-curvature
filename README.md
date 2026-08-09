@@ -41,6 +41,39 @@ pip install -e ".[dev]"     # from a clone
 Requires Python 3.9+ and numpy. Examples and the reproduction scripts also need
 matplotlib, sympy and scipy.
 
+## Running on a measured volume, without writing code
+
+```bash
+pip install -e ".[dev]"          # includes nibabel and scipy for file I/O
+
+# check what is measurable before spending time on a full run
+python -m dircurv u.nii.gz --mask brain.nii.gz --coverage-only
+
+# then the analysis; sigma is in the field's own units, or use --sigma-relative
+python -m dircurv u.nii.gz --mask brain.nii.gz --sigma-relative 0.01 \
+    --out maps/ --step 4
+```
+
+Reads `.nii`, `.nii.gz`, `.mat` (v5–v7) and `.npy`/`.npz`. Writes one NIfTI per
+map — `verdict`, `kappa`, `rho`, `solid_angle`, `order`, `c3`, `c3_status`,
+`span_min`, `span_max` and the six Hessian components — transposed back to the
+input axis order so they overlay on the original data.
+
+For complex data, run each part separately, since the operator is linear in the
+field:
+
+```bash
+python -m dircurv u.mat --component real --out maps_real/
+python -m dircurv u.mat --component imag --out maps_imag/
+```
+
+Two conventions the loader handles explicitly, because getting either wrong is
+silent rather than noisy. **Axis order**: NIfTI and MATLAB store `[x, y, z]`
+while the modules index `[z, y, x]`, so axes are reversed by default and the
+loaded shape and spacing are printed back for checking. **Units**: none are
+converted. Spacing is used as given, so the Hessian is in field-units per
+spacing-unit squared, and `--sigma` is absolute rather than relative.
+
 ## Two entry points
 
 **Callable function, analytic geometry** — for derivative-free optimisation,
@@ -224,7 +257,9 @@ src/dircurv/                the library
   analytic.py               callable f, analytic geometry, 2D and 3D
   grid2d.py                 measured 2D array with a mask
   grid3d.py                 measured 3D volume with a mask
-tests/                      34 tests, including the exactness and
+  io.py                     NIfTI, MATLAB and numpy readers and writers
+  __main__.py               command line
+tests/                      58 tests, including the exactness and
                             no-extrapolation gates in both dimensions
 examples/                   runnable scripts
 directional_curvature.py    reproduction script for the manuscript
