@@ -167,6 +167,48 @@ only C3 is reported `UNDER-DETERMINED`. What is lost without C3 is control of th
 truncation term through the span rule: on the self-test field the relative Hessian
 error was 1.6×10⁻² at `m=12` and 5.4×10⁻⁴ at `m=24`.
 
+## Reliability architecture
+
+No single scalar detects every failure, so each mode has its own detector:
+
+| failure mode | detector | outcome |
+|---|---|---|
+| too few usable directions | rank | `UNUSABLE` |
+| interpolation stencil leaves the mask | mask support | `UNUSABLE` |
+| narrow or anisotropic geometry | aperture, span floor | `SPAN-LIMITED` |
+| truncation or noise too large | ρ | `CAUTION` / `DEFER` |
+| C3 not estimable | pilot status | `DEFER` |
+| good geometry and small predicted error | — | `GOOD` |
+
+**Geometry alone never returns GOOD.** The verdict combines the geometry with a
+predicted error
+
+    E = kappa ( (1+R)/3 C3 h  +  2 sigma nu / (R(1-R) h^2) ),   rho = E / ||H||_F
+
+Measured behaviour on a smooth 2D field, showing ρ against the true relative
+error:
+
+| σ | true error | ρ | verdict |
+|---|---|---|---|
+| 0 | 0.000 | 0.009 | GOOD |
+| 10⁻⁴ | 0.017 | 0.077 | GOOD |
+| 10⁻³ | 0.152 | 0.227 | CAUTION |
+| 3×10⁻³ | 0.573 | 0.458 | DEFER |
+| 10⁻² | 1.951 | 0.799 | DEFER |
+
+ρ understates the true error, because its denominator is itself inflated by
+noise, so `rho_defer` is calibrated to 0.4 rather than 1.
+
+**Known limitation.** The layer does not detect severe under-resolution: at five
+points per wavelength the relative error is around 0.4 and the verdict is still
+GOOD. A guard for this was prototyped and removed — the evidence that motivated
+it turned out to be a pathological evaluation point, and at an ordinary point the
+recovered Hessian had 2.2% relative error against 2.9% for plain central
+differences. `resolution_guard()` remains in the modules as an unvalidated
+experimental diagnostic, is not called, and carries no claim of a
+resolution-based guarantee. The behaviour is pinned by a test so that anyone
+changing it reads the reasoning first.
+
 ## C3 is never fabricated
 
 If the third-order magnitude cannot be estimated, the package says so and, by

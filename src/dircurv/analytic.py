@@ -459,14 +459,28 @@ def measure(f, x0, geom: Geometry, sigma=0.0, m=None, R=R_DEFAULT,
         flags.append("unrestricted two-sided geometry: prefer central "
                      "differences or a poised quadratic regression")
 
+    hw = float(np.median(spans)) if len(spans) else 0.0
+    normH = float(np.linalg.norm(H, "fro")) if H is not None and np.all(np.isfinite(H)) else 0.0
+    if c3_known and normH > 0 and hw > 0 and np.isfinite(kappa):
+        nu = np.sqrt((1 - R) ** 2 + R ** 2 + 1.0)
+        err = float(kappa * ((1 + R) / 3.0 * c3 * hw
+                             + 2 * sigma * nu / (R * (1 - R) * hw ** 2)))
+        rho = err / normH
+    else:
+        rho = None
+    if rho is not None and rho > 0.1:
+        flags.append(f"predicted error is {rho:.2g} times the recovered curvature")
+
     if ndir < dmin or not np.isfinite(kappa):
         verdict = "UNUSABLE"
     elif not c3_known and on_c3_unavailable == "defer":
         verdict = "DEFER-TO-QUADRATIC-REGRESSION"
-    elif kappa > 30 * kref or len(flags) >= 3:
-        verdict = "LOW"
-    elif kappa > 5 * kref or order == 1:
-        verdict = "MODERATE"
+    elif rho is None:
+        verdict = "CAUTION"
+    elif rho > 0.4:
+        verdict = "DEFER"
+    elif rho > 0.1 or kappa > 5 * kref or order == 1 or len(flags) >= 3:
+        verdict = "CAUTION"
     else:
         verdict = "GOOD"
 

@@ -40,7 +40,8 @@ from typing import Optional, Tuple
 
 import numpy as np
 
-__all__ = ["VolumeField", "MaskSupportError3D", "local_directions_3d",
+__all__ = ["VolumeField", "MaskSupportError3D", "predicted_error_3d",
+           "resolution_guard", "local_directions_3d",
            "measure_voxel", "reliability_volumes", "coverage_fraction",
            "solid_angle_pct", "R_DEFAULT", "KAPPA_FULL_SPHERE"]
 
@@ -307,6 +308,64 @@ def estimate_C3_3d(dirs, q, h, sigma=0.0, R=R_DEFAULT, ridge=1e-3):
     return max(3.0 * odd / ((1 + R) * h), 0.0), "VALID"
 
 
+def predicted_error_3d(kappa, c3, h, sigma, R=R_DEFAULT):
+    """kappa * ( (1+R)/3 C3 h  +  2 sigma nu / (R(1-R) h^2) ): truncation plus
+    noise, amplified by the conditioning of the direction geometry.
+
+    The thresholds are calibrated, not chosen. rho systematically UNDERSTATES the
+    true relative error, because its denominator ||H_hat||_F is itself inflated by
+    noise. Measured on a smooth 2D field: rho 0.23 against a true relative error
+    of 0.15, rho 0.46 against 0.57, rho 0.80 against 1.95, rho 0.99 against 5.88.
+    rho_defer is therefore set below 1.
+    """
+    nu = np.sqrt((1 - R) ** 2 + R ** 2 + 1.0)
+    return float(kappa * ((1 + R) / 3.0 * c3 * h
+                          + 2 * sigma * nu / (R * (1 - R) * max(h, 1e-30) ** 2)))
+
+
+
+def resolution_guard(f_values, H, h, lam_caution=4.0, lam_defer=2.0):
+    """EXPERIMENTAL AND UNVALIDATED. Not used by the production path.
+
+    This was written to flag an apparent under-resolution failure that a control
+    test later showed to be a pathological choice of evaluation point, not a
+    defect: at an ordinary point the recovered Hessian had 2.2 percent relative
+    error against the analytic value, against 2.9 percent for plain central
+    differences. The heuristic below is therefore retained only as a diagnostic
+    for anyone who wants to explore the question, is off by default, and carries
+    NO claim of a resolution-based reliability guarantee.
+
+    Conservative probe-resolution warning. NOT a theorem.
+
+    rho cannot certify the under-resolved regime, because C3 is estimated from
+    the same probes: when the field varies faster than the probe can follow, the
+    odd-harmonic projection under-reports the third derivative and rho looks
+    small precisely when it should be large. This guard is an independent, and
+    deliberately crude, check on that regime.
+
+    A local variation scale is estimated by treating the field as locally
+    oscillatory, |trace(H)| ~ k^2 |f - fbar|, giving lambda ~ 2 pi / k. The
+    working span is then compared with that scale. Returns
+    (lambda_estimate, status) with status in {OK, UNDER-RESOLVED-CAUTION,
+    UNDER-RESOLVED-DEFER}.
+
+    It does not attempt to correct the Hessian, only to say that the estimate
+    cannot certify itself here.
+    """
+    f = np.asarray(f_values, float)
+    amp = float(np.max(np.abs(f - f.mean()))) if f.size > 1 else 0.0
+    tr = float(abs(np.trace(np.atleast_2d(H))))
+    if amp <= 0 or tr <= 0:
+        return np.inf, "OK"
+    k = np.sqrt(tr / amp)
+    lam = 2 * np.pi / k
+    if h > lam / lam_defer:
+        return lam, "UNDER-RESOLVED-DEFER"
+    if h > lam / lam_caution:
+        return lam, "UNDER-RESOLVED-CAUTION"
+    return lam, "OK"
+
+
 @dataclass
 class VoxelReport:
     index: Tuple[int, int, int]
@@ -320,6 +379,8 @@ class VoxelReport:
     C3_status: str
     antipodal_sampled: float
     expected_order: int
+    error_estimate: Optional[float]
+    rho: Optional[float]
     verdict: str
     flags: list
 
@@ -334,7 +395,11 @@ class VoxelReport:
              f"expected order       {self.expected_order}",
              "C3                   " + ("not estimated" if self.C3_hat is None
                                         else f"{self.C3_hat:.4g}"),
-             f"C3 status            {self.C3_status}"]
+             f"C3 status            {self.C3_status}",
+             "predicted error      " + ("not available" if self.error_estimate is None
+                                        else f"{self.error_estimate:.4g}"),
+             "rho = err / |H|_F    " + ("not available" if self.rho is None
+                                        else f"{self.rho:.3g}")]
         if self.H_hat is not None:
             L.append("Hessian:")
             for row in self.H_hat:
@@ -347,12 +412,12 @@ class VoxelReport:
 
 def _unusable(index, ndir, sa, msg, c3=None, status="NOT-ATTEMPTED", flags=None):
     return VoxelReport(index, ndir, sa, np.inf, 0.0, 0.0, None, c3, status,
-                       0.0, 0, "UNUSABLE", (flags or []) + [msg])
+                       0.0, 0, None, None, "UNUSABLE", (flags or []) + [msg])
 
 
 def measure_voxel(field: VolumeField, index, m=24, h_cap=None, sigma=0.0,
-                  R=R_DEFAULT, c3_prior=None,
-                  on_c3_unavailable="defer") -> VoxelReport:
+                  R=R_DEFAULT, c3_prior=None, on_c3_unavailable="defer",
+                  h_floor=1.0, rho_caution=0.1, rho_defer=0.4) -> VoxelReport:
     """Measure curvature, conditioning and model adequacy at one voxel."""
     index = tuple(int(v) for v in index)
     flags = []
@@ -393,13 +458,21 @@ def measure_voxel(field: VolumeField, index, m=24, h_cap=None, sigma=0.0,
     if not c3_known and on_c3_unavailable == "require":
         raise ValueError(f"C3 unavailable ({c3_status}) at {index}")
 
+    # A span below the voxel resolution cannot be supported by the data. The
+    # floor is tied to the spacing, NOT to |H|, which would be circular.
+    h_min = h_floor * float(field.spacing.max())
     if c3_known:
         nu = np.sqrt((1 - R) ** 2 + R ** 2 + 1.0)
         fscale = abs(field.at(np.asarray(index, float))) + 1.0
         sg = max(sigma, 1e-16 * fscale)
         h_star = (2.0 * (2.0 * nu / (R * (1 - R)) * sg)
                   / max((1 + R) / 3.0 * c3, 1e-14)) ** (1 / 3)
-        work = np.minimum(spans, h_star)
+        if h_star < h_min:
+            c3_status = "SPAN-LIMITED"
+            flags.append(f"the balance span {h_star:.3g} is below the voxel floor "
+                         f"{h_min:.3g}; the noise-truncation optimum is not "
+                         "attainable at this resolution")
+        work = np.minimum(np.clip(np.minimum(spans, h_star), h_min, None), spans)
     else:
         work = spans.copy()
         flags.append(f"C3 unavailable ({c3_status}); spans fall back to the "
@@ -439,25 +512,41 @@ def measure_voxel(field: VolumeField, index, m=24, h_cap=None, sigma=0.0,
     if sa < 60:
         flags.append(f"only {sa:.0f}% of the solid angle usable at this span")
 
+    hw = float(np.median(work))
+    normH = float(np.linalg.norm(H, "fro"))
+    if c3_known and normH > 0:
+        err = predicted_error_3d(kappa, c3, hw, sigma, R)
+        rho = err / normH
+    else:
+        err, rho = None, None
+
+    if rho is not None and rho > rho_caution:
+        flags.append(f"predicted error is {rho:.2g} times the recovered "
+                     "curvature")
+
+    # geometry alone never returns GOOD
     if not c3_known and on_c3_unavailable == "defer":
         verdict = "DEFER"
-    elif kappa > 30 * KAPPA_FULL_SPHERE or len(flags) >= 3:
-        verdict = "LOW"
-    elif kappa > 5 * KAPPA_FULL_SPHERE or order == 1:
-        verdict = "MODERATE"
+    elif rho is None:
+        verdict = "CAUTION"
+    elif rho > rho_defer:
+        verdict = "DEFER"
+    elif rho > rho_caution or kappa > 5 * KAPPA_FULL_SPHERE or order == 1 \
+            or len(flags) >= 3:
+        verdict = "CAUTION"
     else:
         verdict = "GOOD"
 
     return VoxelReport(index, ndir, sa, kappa, float(work.min()),
                        float(work.max()), H, c3, c3_status, apf, order,
-                       verdict, flags)
+                       err, rho, verdict, flags)
 
 
 # =====================================================================
 # Batch volumes
 # =====================================================================
 
-VERDICT_CODE = {"UNUSABLE": 0, "DEFER": 1, "LOW": 2, "MODERATE": 3, "GOOD": 4}
+VERDICT_CODE = {"UNUSABLE": 0, "DEFER": 1, "CAUTION": 2, "GOOD": 3}
 STATUS_CODE = {"NOT-ATTEMPTED": 0, "UNDER-DETERMINED": 1, "SPAN-LIMITED": 2,
                "NOISE-LIMITED": 3, "USER-SUPPLIED": 4, "VALID": 5}
 
@@ -473,7 +562,7 @@ def reliability_volumes(field: VolumeField, m=24, h_cap=None, sigma=0.0,
     shp = (field.nz, field.ny, field.nx)
     out = {k: np.full(shp, np.nan) for k in
            ("solid_angle", "kappa", "c3", "H11", "H22", "H33",
-            "H12", "H13", "H23", "span_min", "span_max")}
+            "H12", "H13", "H23", "span_min", "span_max", "rho")}
     for k in ("order", "verdict", "c3_status"):
         out[k] = np.zeros(shp, np.int8)
     done = 0
@@ -491,6 +580,8 @@ def reliability_volumes(field: VolumeField, m=24, h_cap=None, sigma=0.0,
                 out["c3_status"][iz, iy, ix] = STATUS_CODE[r.C3_status]
                 out["span_min"][iz, iy, ix] = r.span_min
                 out["span_max"][iz, iy, ix] = r.span_max
+                if r.rho is not None:
+                    out["rho"][iz, iy, ix] = r.rho
                 if r.C3_hat is not None:
                     out["c3"][iz, iy, ix] = r.C3_hat
                 if r.H_hat is not None:
