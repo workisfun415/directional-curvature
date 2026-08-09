@@ -1,125 +1,133 @@
-# Directional curvature recovery
+# dircurv
 
-Reproduction code for the manuscript
+Directional curvature measurement under restricted sampling, with reliability
+reporting.
 
-> **Geometry, conditioning, and limits of one-sided directional curvature recovery**
-> R. Pasupuleti, Independent Researcher, Suryapet, India.
-> Preprint: https://doi.org/10.21203/rs.3.rs-10592133
-> Archive: https://doi.org/10.5281/zenodo.21793101
+[![tests](https://github.com/workisfun415/directional-curvature/actions/workflows/tests.yml/badge.svg)](https://github.com/workisfun415/directional-curvature/actions)
 
-Everything reported in the manuscript — every theorem verification, every numerical
-observation, both comparison tables and all figures — is produced by the two scripts
-in this repository. No other code is required.
+Estimating a Hessian requires probing in several directions. When the sampling
+geometry is restricted — near a boundary, under active constraints, inside a thin
+structure, or within an irregular mask — some directions are unavailable and some
+spans are short. This package measures the curvature and, more importantly, tells
+you how much the geometry has cost you.
 
-## Contents
+It returns three distinct quantities, which must not be conflated:
 
-| File | Purpose |
+| quantity | meaning |
 |---|---|
-| `directional_curvature.py` | All numerical work: geometry, estimators, harmonic machinery, verification, comparison tables, figures |
-| `verify_proofs.py` | Symbolic verification of the algebraic steps in the proofs |
-| `requirements.txt` | Dependencies |
-| `CITATION.cff` | Citation metadata |
+| `H_hat` | the recovered Hessian |
+| `kappa` | conditioning of the locally available direction geometry |
+| `C3_hat` | third-order magnitude, or an explicit reason it is unavailable |
 
-## Requirements
+together with the usable aperture, the attainable order of accuracy, and a
+verdict.
 
-Python 3.9 or later.
+## What this is not
 
-```
-pip install -r requirements.txt
-```
+It does not estimate stiffness, solve an inverse problem, or compete with an
+inversion. In the benchmark accompanying the paper, quadratic regression on the
+same feasible sample points matched or outperformed the directional estimator in
+**all 48 configurations tested**. Read `when_not_to_use()` before relying on any
+output; it is a function, not a footnote.
 
-Dependencies are `numpy`, `matplotlib` and `sympy`. Nothing else is needed and there
-is no installation step — both files are standalone scripts.
+The contribution is the diagnosis, not the estimator.
 
-## Running
+## Install
 
 ```bash
-python directional_curvature.py --quick      # fast smoke test, reduced replicates
-python directional_curvature.py --theorems   # theorem and observation verification
-python directional_curvature.py --benchmark  # the comparison tables
-python directional_curvature.py --figures    # all figures, as .pdf and .png
-python directional_curvature.py --all        # everything (slowest)
-python verify_proofs.py                      # symbolic proof checks; all must print True
+pip install -e ".[dev]"     # from a clone
 ```
 
-`--quick` finishes in a few minutes and is the right first command. `--all` takes
-considerably longer, most of it in the comparison tables, which sweep an
-oracle-optimal sampling radius for every method in every cell.
+Requires Python 3.9+ and numpy. Examples and the reproduction scripts also need
+matplotlib, sympy and scipy.
 
-## What each function verifies
+## Two entry points
 
-| Function | Manuscript statement |
+**Callable function, analytic geometry** — for derivative-free optimisation,
+method development, and reproducing the paper.
+
+```python
+import numpy as np
+from dircurv import Geometry, measure
+
+f = lambda p: np.exp(p[0] + 0.5*p[1]) * np.cos(p[2])
+g = Geometry.cone(dim=3, half_angle_deg=45, max_span=0.3)
+print(measure(f, np.full(3, 0.1), g, sigma=1e-6, m=24))
+```
+
+**Measured 2D array with a mask** — for images and measured fields. Feasible
+directions are derived from the mask by ray-marching.
+
+```python
+from dircurv import GridField, reliability_maps
+maps = reliability_maps(GridField(array, spacing=0.002, mask=mask),
+                        m=16, sigma=1e-4)
+```
+
+## Preconditions for measured data
+
+Two are mathematical rather than technical, and violating them produces numbers
+that look reasonable and mean nothing.
+
+**Complex fields are processed component-wise.** The expansion is linear in the
+field, so it applies to the real and imaginary parts of a complex phasor
+separately. It does **not** apply to the amplitude `|u|`: taking the modulus
+before differentiation is nonlinear and outside the theory. Complex input raises
+`TypeError`.
+
+**The mask must be locally contiguous.** Interpolation is bicubic, which
+reproduces cubics exactly and therefore leaves both the quadratic model and the
+first-order remainder intact; a lower-order interpolant injects error of the same
+size as the quantity being measured. Bicubic needs a complete local 4×4
+neighbourhood, so coverage depends on the mask:
+
+| mask | pixels with a complete stencil |
 |---|---|
-| `verify_hessians()` | Test-function Hessians against fourth-order central differences |
-| `obs_identifiability()` | Theorem 2.1, the ten-evaluation floor |
-| `obs_direction_sets()` | Rank deficiency of Fibonacci sets at m = 6 |
-| `thm_cone_singular()` | Theorem 3.1, singular-value orders and constants |
-| `obs_constants()` | Grid refinement of the constants, against 1/sqrt(24) |
-| `obs_parity_scaling()` | Proposition 4.2 and Corollary 4.3, the parity split |
-| `obs_order()` | Proposition 4.4, antipodal availability and attainable order |
-| `obs_parity_separation()` | Degeneracy of the parity split on a narrow cap |
-| `obs_plateau()` | Insensitivity of the estimate to the ridge parameter |
-| `obs_tracking()` | That the regularised estimate tracks the third derivative |
-| `obs_pilot_size()` | Minimum pilot size and the rank condition |
-| `obs_R_sweep()` | Node placement: R = 1/2 at high noise, R ~ 0.3 at low |
-| `obs_dopt()` | D-optimal direction selection inside a cone |
-| `benchmark_main()` | Table 3, the controlled comparison |
-| `benchmark_msweep()` | Table 5, redundant directions at matched budget |
-| `benchmark_sensitivity()` | Base-point and cone-axis sensitivity |
+| full grid | 92.7% |
+| straight boundary | 89.9% |
+| circular | 76.3% |
+| irregular notch | 64.4% |
+| thin strip | 38.5% |
+| 20% scattered dropout | **3.0%** |
 
-## Conventions
+Where the stencil would leave the mask the result is `UNUSABLE`. The package
+never extrapolates across invalid data: in testing, 165 of 165 such pixels were
+refused.
 
-Sym_3(R) uses the Frobenius-consistent coordinates
-`(H11, H22, H33, sqrt2*H12, sqrt2*H13, sqrt2*H23)`, so the coordinate 2-norm equals
-the Frobenius norm. Caps are sampled on a tensor grid in (phi, psi); *area-uniform*
-means cos(phi) equispaced, *polar-uniform* means phi equispaced. The default probe
-uses R = 1/2 and the evaluation point is x = (0.10, -0.05, 0.20) throughout. Noise is
-independent N(0, sigma^2) per evaluation, with sigma quoted relative to |f(x)| + 1.
+## Attainable order
 
-All random seeds are literals in the source. Within a benchmark cell every method
-sees the same noise realisations. Grid-refinement studies report only digits stable
-under a doubling of the grid in both coordinates.
+Second-order accuracy requires antipodal partners to be **sampled**, not merely
+feasible. The icosahedral six-axis set and every Fibonacci set contain no
+antipodal pair, so in wholly unrestricted geometry they still give first order:
 
-## Reproducing the figures
+| direction set | sampled antipodes | measured order |
+|---|---|---|
+| icosahedral, 6 | 0% | 1.01 |
+| icosahedral ±, 12 | 100% | 2.00 |
+| Fibonacci, 24 | 0% | 1.10 |
+| Fibonacci ±, 48 | 100% | 2.00 |
 
-`python directional_curvature.py --figures` writes, as both `.pdf` and `.png`:
+## C3 is never fabricated
 
-- `fig0_roadmap` — organisation of the results
-- `fig_cone_geometry` — admissible directions on a wide and a narrow cap
-- `fig_thm_illustration` — response of the three curvature components against aperture
-- `fig1_cone` — singular values and the constant
-- `fig2_refine` — grid refinement of the constant
-- `fig3_parity` — parity scaling
-- `fig4_order` — antipodal availability and order
-- `fig5_plateau` — the regularisation plateau
-- `fig6_pilot` — pilot usability against aperture
-- `fig_comparison` — error against admissible aperture
+If the third-order magnitude cannot be estimated, the package says so and, by
+default, recommends quadratic regression instead of substituting a value.
+Statuses: `VALID`, `NOISE-LIMITED`, `SPAN-LIMITED`, `UNDER-DETERMINED`,
+`USER-SUPPLIED`, `NOT-ATTEMPTED`. Policies via `on_c3_unavailable`: `"defer"`
+(default), `"hmax"`, `"require"`.
 
-## A note on what this code shows
+## Repository layout
 
-The comparison in `benchmark_main()` finds that the directional schemes studied do
-**not** outperform quadratic regression on the same feasible sample points at matched
-evaluation budget, in any configuration tested. That is the reported result, not a
-bug. The manuscript's contribution is the geometry and the limits, not an estimator.
-
-The manuscript also documents nine experimental artifacts that produced apparently
-positive results during development and were removed. Several of the guards against
-them are visible in this code: the oracle radius sweep applied to every method rather
-than only the one under test, the shared noise realisations, the explicit reporting of
-infeasible stencils, and the rank condition on the pilot basis.
-
-## Citation
-
-```bibtex
-@software{pasupuleti_directional_curvature,
-  author  = {Pasupuleti, Ramakrishna},
-  title   = {Directional curvature recovery: reproduction code},
-  year    = {2026},
-  doi     = {10.5281/zenodo.21793101},
-  url     = {https://github.com/workisfun415/directional-curvature}
-}
 ```
+src/dircurv/      the library: analytic.py, grid2d.py
+tests/            25 tests, including the exactness and no-extrapolation gates
+examples/         three runnable scripts
+paper/            reproduction scripts for the accompanying manuscript
+```
+
+## Citing
+
+Archived at https://doi.org/10.5281/zenodo.21793101. See `CITATION.cff`.
 
 ## License
 
-MIT. See `LICENSE`.
+MIT.
