@@ -9,9 +9,19 @@ described analytically (a cone, slab, wedge or free space). Use this for
 derivative-free optimisation, for method development, and for reproducing the
 results in the accompanying paper.
 
-`dircurv.grid2d` and `dircurv.grid3d` -- the data is a measured 2D array or 3D
-volume with a validity mask. Use these for images, measured fields and imaging
-volumes. Feasible directions are derived from the
+`dircurv.lattice` -- measured data on a grid, with probe points restricted to
+grid nodes so that NO interpolation is used. This is the right choice near a
+mask boundary: the support is exactly the nodes each ray visits, so a one-sided
+ray needs nothing on the far side. Measured on a masked sphere it reaches about
+22 percent more voxels than a central-difference stencil, including 4100 voxels
+where central differences cannot be applied at all.
+
+`dircurv.grid2d` and `dircurv.grid3d` -- the same measurement with bicubic or
+tricubic interpolation, so directions and spans are free rather than restricted
+to the lattice. Use these when sampling off-grid genuinely matters. Note that
+the interpolation support is 4x4 or 4x4x4, which is LARGER than a
+central-difference stencil, so near a mask boundary these paths give up first
+and offer no boundary advantage. Feasible directions are derived from the
 mask by ray-marching; interpolation is bicubic and refuses to extrapolate
 outside the mask.
 
@@ -43,17 +53,19 @@ writing any code:
 
 Before relying on the output, read `dircurv.analytic.when_not_to_use()`.
 """
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
-from . import analytic, grid2d, grid3d, io   # noqa: F401
+from . import analytic, grid2d, grid3d, lattice, io   # noqa: F401
 from .analytic import Geometry, measure, when_not_to_use, kappa_reference  # noqa: F401
 from .grid2d import (GridField, MaskSupportError, measure_pixel,  # noqa: F401
                      reliability_maps)
 from .grid3d import (VolumeField, MaskSupportError3D,  # noqa: F401
                      measure_voxel, reliability_volumes, coverage_fraction)
+from .lattice import measure_lattice, feasible_lattice  # noqa: F401
 from .io import load_field, load_mask, save_maps, describe  # noqa: F401
 
-__all__ = ["analytic", "grid2d", "grid3d", "Geometry", "measure",
+__all__ = ["analytic", "grid2d", "grid3d", "lattice", "measure_lattice",
+           "feasible_lattice", "Geometry", "measure",
            "when_not_to_use", "kappa_reference", "GridField",
            "MaskSupportError", "measure_pixel", "reliability_maps",
            "VolumeField", "MaskSupportError3D", "measure_voxel",

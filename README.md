@@ -74,6 +74,51 @@ loaded shape and spacing are printed back for checking. **Units**: none are
 converted. Spacing is used as given, so the Hessian is in field-units per
 spacing-unit squared, and `--sigma` is absolute rather than relative.
 
+## Which path to use on grid data
+
+**Use `lattice` near boundaries.** Probe points are restricted to grid nodes, so
+no interpolation is performed and the support is exactly the nodes each ray
+visits. A one-sided ray then needs nothing on the far side of the evaluation
+point.
+
+```python
+from dircurv import measure_lattice
+r = measure_lattice(volume, (iz, iy, ix), spacing=(dz, dy, dx), mask=mask,
+                    order=1)      # order=1 gives 26 directions in 3D
+print(r)
+```
+
+The interpolating paths (`grid2d`, `grid3d`) need a complete 4×4 or 4×4×4
+neighbourhood, which is **larger** than a central-difference stencil. Measured on
+a masked sphere:
+
+| | applicable voxels | only this method | only central differences |
+|---|---|---|---|
+| `grid3d` (tricubic) | 15,504 | **0** | 1,873 |
+| `lattice` | 22,371 | **4,100** | 0 |
+| central differences | 18,271 | — | — |
+
+So the interpolating path has no boundary advantage at all, while `lattice`
+reaches 22% more of the volume. Use the interpolating paths only when off-grid
+sampling genuinely matters.
+
+**Accuracy against central differences**, MRE-like field, 2 mm voxels, 20 mm
+wavelength:
+
+| | σ=10⁻³ | σ=10⁻² |
+|---|---|---|
+| 3D interior, `lattice` | **0.387** | **0.433** |
+| 3D interior, central differences | 0.831 | 0.836 |
+| 3D boundary-only voxels, `lattice` | 0.783 | 0.794 |
+| 2D interior, `lattice` | 0.426 | — |
+| 2D interior, central differences | **0.060** | — |
+
+In three dimensions `lattice` is about twice as accurate as central differences
+and reaches voxels they cannot. **In two dimensions it is roughly seven times
+worse**: a one-sided stencil is first order, and at ten points per wavelength the
+O(h·f‴) term dominates, which the richer 3D direction set recovers from and the
+eight short 2D lattice directions do not.
+
 ## Two entry points
 
 **Callable function, analytic geometry** — for derivative-free optimisation,
