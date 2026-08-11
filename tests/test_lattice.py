@@ -160,3 +160,42 @@ def test_max_steps_respects_the_mask():
     mask[10, 10:16] = True
     assert max_steps(mask, (10, 10), (0, 1), 5) == 2      # nodes at 2 and 4
     assert max_steps(mask, (10, 10), (0, -1), 5) == 0     # nothing to the left
+
+
+# --------------------------------------------------------------- batch + CLI
+def test_reliability_lattice_shapes_and_masking():
+    from dircurv.lattice import reliability_lattice, VERDICT_CODE
+    F, H, sp = quad3(n=21)
+    zz, yy, xx = np.mgrid[0:21, 0:21, 0:21]
+    mask = (np.sqrt((xx-10)**2 + (yy-10)**2 + (zz-10)**2) < 7)
+    maps = reliability_lattice(F, sp, mask=mask, order=1, s_cap=2, step=3)
+    for k in ("kappa", "verdict", "order", "H11", "H33"):
+        assert maps[k].shape == F.shape
+    assert np.all(maps["verdict"][~mask] == 0)
+    scored = maps["verdict"] > 0
+    assert scored.sum() > 20
+    # inside a ball the quadratic must be recovered exactly
+    good = scored & np.isfinite(maps["H11"])
+    assert np.nanmax(np.abs(maps["H11"][good] - H[0, 0])) < 1e-8
+    assert np.nanmax(np.abs(maps["H33"][good] - H[2, 2])) < 1e-8
+
+
+def test_cli_defaults_to_the_lattice_path(tmp_path, capsys):
+    """The interpolating path has no boundary advantage, so it must not be the
+    default: on a masked sphere it reached 62.9% of voxels against 100% here."""
+    nib = pytest.importorskip("nibabel")
+    from dircurv.__main__ import main
+    n, sp = 21, 0.002
+    zz, yy, xx = np.mgrid[0:n, 0:n, 0:n]
+    X, Y, Z = (xx-n//2)*sp, (yy-n//2)*sp, (zz-n//2)*sp
+    F = np.exp(X + 0.5*Y)*np.cos(2*Z)
+    mask = np.sqrt(X**2 + Y**2 + Z**2) < 0.014
+    aff = np.diag([sp*1000]*3 + [1.0])
+    pv = str(tmp_path / "u.nii.gz")
+    pm = str(tmp_path / "m.nii.gz")
+    nib.save(nib.Nifti1Image(np.transpose(F, (2, 1, 0)), aff), pv)
+    nib.save(nib.Nifti1Image(np.transpose(mask, (2, 1, 0)).astype(float), aff), pm)
+    rc = main([pv, "--mask", pm, "--spacing", str(sp), "--coverage-only"])
+    assert rc == 0
+    out = capsys.readouterr().out
+    assert "lattice path" in out and "no interpolation" in out

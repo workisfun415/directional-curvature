@@ -59,6 +59,20 @@ def build_parser():
     p.add_argument("--axis-order", choices=["reverse", "keep"], default="reverse",
                    help="NIfTI and MATLAB store [x,y,z]; the modules want "
                         "[z,y,x], so the default reverses the axes")
+    p.add_argument("--interpolate", action="store_true",
+                   help="use the bicubic/tricubic path instead of the lattice "
+                        "default. Its interpolation support is larger than a "
+                        "central-difference stencil, so near a mask boundary it "
+                        "gives up first: on a masked sphere it reached 62.9%% of "
+                        "voxels against 74.3%% for central differences and 100%% "
+                        "for the lattice path. Use it only when sampling off the "
+                        "grid genuinely matters.")
+    p.add_argument("--lattice-order", type=int, default=1, choices=[1, 2],
+                   help="lattice order: 1 gives 8 directions in 2D and 26 in 3D "
+                        "with short spans (default); 2 gives more directions but "
+                        "longer spans and more truncation")
+    p.add_argument("--s-cap", type=int, default=2,
+                   help="largest step multiple to consider along each lattice ray")
     p.add_argument("--coverage-only", action="store_true",
                    help="report the measurable fraction and stop")
     p.add_argument("--h-cap", type=float,
@@ -84,6 +98,51 @@ def main(argv=None):
               f"{amp:g} = {sigma:g} (field units)")
 
     ndim = field.ndim
+
+    # ---- default path: grid nodes only, no interpolation -----------------
+    if not args.interpolate:
+        from .lattice import (reliability_lattice, feasible_lattice,
+                              VERDICT_CODE as LV)
+        mk = np.ones_like(field, bool) if mask is None else mask
+        dmin = ndim * (ndim + 1) // 2
+        tot = ok = 0
+        stride = max(args.step, 2)
+        rngs = [range(0, field.shape[d], stride) for d in range(ndim)]
+        nodes = ([(i, j) for i in rngs[0] for j in rngs[1]] if ndim == 2
+                 else [(i, j, k) for i in rngs[0] for j in rngs[1]
+                       for k in rngs[2]])
+        for nd in nodes:
+            if not mk[nd]:
+                continue
+            tot += 1
+            ok += len(feasible_lattice(mk, nd, order=args.lattice_order,
+                                       s_cap=args.s_cap)) >= dmin
+        print(f"coverage: {100*ok/max(tot,1):.1f}% of masked nodes are "
+              "measurable (lattice path, no interpolation)")
+        if args.coverage_only:
+            return 0
+        print(f"measuring on grid nodes, lattice order {args.lattice_order}, "
+              f"step={args.step} ...")
+        maps = reliability_lattice(field, spacing, mask=mask,
+                                   order=args.lattice_order, s_cap=args.s_cap,
+                                   sigma=sigma, step=args.step, progress=True)
+        print()
+        describe(maps, verdict_codes=LV)
+        print()
+        save_maps(maps, args.out, spacing=spacing, axis_order=args.axis_order,
+                  template=args.field if args.field.lower().endswith(
+                      (".nii", ".nii.gz")) else None)
+        print()
+        print("Lattice path: every probe point is a grid node, so no "
+              "interpolation is used and a one-sided ray needs nothing on the "
+              "far side. 'verdict' is the summary map -- "
+              + ", ".join(f"{v}={k}" for k, v in sorted(LV.items(),
+                                                        key=lambda t: t[1]))
+              + ". Note that where a central-difference stencil also fits, "
+                "central differences are more accurate; the advantage here is "
+                "reach, not accuracy.")
+        return 0
+
     if ndim == 3:
         from .grid3d import VolumeField, reliability_volumes, coverage_fraction
         from .grid3d import VERDICT_CODE

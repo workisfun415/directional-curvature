@@ -89,12 +89,29 @@ def test_cli_coverage_only_runs(tmp_path, capsys):
 
 
 def test_cli_full_run_writes_maps(tmp_path):
+    """The default path is the lattice one, which has no C3 pilot and therefore
+    no rho map."""
     from dircurv.__main__ import main
     vol, mask = _volume()
     pv = _write_nifti(tmp_path, vol, "u.nii.gz")
     pm = _write_nifti(tmp_path, mask.astype(float), "m.nii.gz")
     out = str(tmp_path / "maps")
     rc = main([pv, "--mask", pm, "--spacing", str(SP),
+               "--sigma-relative", "0.01", "--out", out, "--step", "6"])
+    assert rc == 0
+    for name in ("verdict", "kappa", "order", "H11", "H33", "n_directions"):
+        assert os.path.exists(os.path.join(out, name + ".nii.gz"))
+
+
+def test_cli_interpolate_flag_uses_the_other_path(tmp_path):
+    """--interpolate reaches the tricubic path, which does run a C3 pilot and
+    therefore does write rho."""
+    from dircurv.__main__ import main
+    vol, mask = _volume()
+    pv = _write_nifti(tmp_path, vol, "u.nii.gz")
+    pm = _write_nifti(tmp_path, mask.astype(float), "m.nii.gz")
+    out = str(tmp_path / "maps_interp")
+    rc = main([pv, "--mask", pm, "--spacing", str(SP), "--interpolate",
                "--sigma-relative", "0.01", "--out", out, "--step", "8",
                "--m", "24"])
     assert rc == 0

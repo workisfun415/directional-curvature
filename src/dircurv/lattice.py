@@ -37,7 +37,8 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 __all__ = ["lattice_directions", "measure_lattice", "feasible_lattice",
-           "LatticeReport", "R_LATTICE"]
+           "reliability_lattice", "LatticeReport", "VERDICT_CODE",
+           "R_LATTICE"]
 
 R_LATTICE = 0.5          # nodes {0, s, 2s}: the interior node is a grid point
 
@@ -261,3 +262,66 @@ def measure_lattice(array, index, spacing, mask=None, order=2, s_cap=4,
                else "CAUTION" if kappa < 20 else "LOW")
     return LatticeReport(index, len(usable), kappa, H, anti, order_attained,
                          float(min(spans)), float(max(spans)), verdict, flags)
+
+
+# =====================================================================
+# Batch maps
+# =====================================================================
+
+VERDICT_CODE = {"UNUSABLE": 0, "LOW": 1, "CAUTION": 2, "GOOD": 3}
+
+
+def reliability_lattice(array, spacing, mask=None, order=None, s_cap=2,
+                        sigma=0.0, step=1, progress=False) -> dict:
+    """Per-node maps over the whole valid region, using grid nodes only.
+
+    Returns a dict of arrays: kappa, order, verdict, n_directions, span_min,
+    span_max, and the Hessian components. Nodes that cannot be measured are
+    NaN, or 0 in the integer-coded maps.
+
+    `order` is the lattice order: 1 gives 8 directions in 2D and 26 in 3D and
+    keeps the spans short, which is usually what you want; 2 gives 16 and 98 but
+    the longer vectors carry longer spans and more truncation. Defaults to 1.
+    """
+    A = np.asarray(array, float)
+    ndim = A.ndim
+    if order is None:
+        order = 1
+    mask = np.ones_like(A, bool) if mask is None else np.asarray(mask, bool)
+    keys = ["kappa", "n_directions", "span_min", "span_max"]
+    keys += (["H11", "H22", "H12"] if ndim == 2
+             else ["H11", "H22", "H33", "H12", "H13", "H23"])
+    out = {k: np.full(A.shape, np.nan) for k in keys}
+    out["order"] = np.zeros(A.shape, np.int8)
+    out["verdict"] = np.zeros(A.shape, np.int8)
+
+    idxs = [range(0, A.shape[d], step) for d in range(ndim)]
+    done = 0
+    it = ([(i, j) for i in idxs[0] for j in idxs[1]] if ndim == 2 else
+          [(i, j, k) for i in idxs[0] for j in idxs[1] for k in idxs[2]])
+    for node in it:
+        if not mask[node]:
+            continue
+        r = measure_lattice(A, node, spacing, mask=mask, order=order,
+                            s_cap=s_cap, sigma=sigma)
+        out["n_directions"][node] = r.n_directions
+        out["order"][node] = r.expected_order
+        out["verdict"][node] = VERDICT_CODE[r.verdict]
+        if np.isfinite(r.kappa):
+            out["kappa"][node] = r.kappa
+        out["span_min"][node] = r.span_min
+        out["span_max"][node] = r.span_max
+        if r.H_hat is not None:
+            H = r.H_hat
+            if ndim == 2:
+                out["H11"][node], out["H22"][node] = H[0, 0], H[1, 1]
+                out["H12"][node] = H[0, 1]
+            else:
+                for key, v in (("H11", H[0, 0]), ("H22", H[1, 1]),
+                               ("H33", H[2, 2]), ("H12", H[0, 1]),
+                               ("H13", H[0, 2]), ("H23", H[1, 2])):
+                    out[key][node] = v
+        done += 1
+        if progress and done % 2000 == 0:
+            print(f"  {done} nodes", flush=True)
+    return out
