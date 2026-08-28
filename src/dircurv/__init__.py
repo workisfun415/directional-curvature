@@ -53,9 +53,9 @@ writing any code:
 
 Before relying on the output, read `dircurv.analytic.when_not_to_use()`.
 """
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
-from . import analytic, grid2d, grid3d, lattice, io   # noqa: F401
+from . import analytic, grid2d, grid3d, lattice, fusion, io   # noqa: F401
 from .analytic import Geometry, measure, when_not_to_use, kappa_reference  # noqa: F401
 from .grid2d import (GridField, MaskSupportError, measure_pixel,  # noqa: F401
                      reliability_maps)
@@ -63,10 +63,12 @@ from .grid3d import (VolumeField, MaskSupportError3D,  # noqa: F401
                      measure_voxel, reliability_volumes, coverage_fraction)
 from .lattice import (measure_lattice, feasible_lattice,  # noqa: F401
                       reliability_lattice)
+from .fusion import fuse_hessians, sweep_weights  # noqa: F401
 from .io import load_field, load_mask, save_maps, describe  # noqa: F401
 
 __all__ = ["analytic", "grid2d", "grid3d", "lattice", "measure_lattice",
-           "feasible_lattice", "reliability_lattice", "Geometry", "measure",
+           "feasible_lattice", "reliability_lattice", "fusion", "fuse_hessians",
+           "sweep_weights", "Geometry", "measure",
            "when_not_to_use", "kappa_reference", "GridField",
            "MaskSupportError", "measure_pixel", "reliability_maps",
            "VolumeField", "MaskSupportError3D", "measure_voxel",

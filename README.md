@@ -74,6 +74,37 @@ loaded shape and spacing are printed back for checking. **Units**: none are
 converted. Spacing is used as given, so the Hessian is in field-units per
 spacing-unit squared, and `--sigma` is absolute rather than relative.
 
+## Experimental: tensor fusion
+
+`dircurv.fusion` combines a directional Hessian with a one-sided differencing
+Hessian at the same location:
+
+```python
+from dircurv import fuse_hessians, sweep_weights
+H = fuse_hessians(H_directional, H_onesided, weight=0.65)
+curve = sweep_weights(H_directional, H_onesided)   # inspect, don't assume
+```
+
+**This is experimental and the weight is not universal.** On the public
+multifrequency MRE dataset of Feng et al. (Sci Data 2025), a weight of 0.65 was
+chosen on one half of an agar phantom and evaluated on the other, beating
+one-sided differencing at all four frequencies on both scatter and bias. Frozen
+at that value and applied to brain and liver, it reduced departure from the
+reference reconstruction in 7 of 8 acquisitions; restricted to 30–50 Hz, 6 of 6,
+median reduction 33%, sign test p = 0.031.
+
+The gain is not variance reduction: averaging with a *neighbouring* one-sided
+estimate improved scatter from 0.339 to 0.302, while averaging with the
+directional estimate at the *same* voxel gave 0.181.
+
+But the per-acquisition optimum ranged from 0.25 to 0.75, and at 60 Hz fusion was
+worse than one-sided differencing in liver. For brain and liver the error measure
+is departure from a reference *reconstruction*, not ground truth. This is eight
+acquisitions from a single study. **It is not a validated reconstruction method
+and must not be used clinically.** Call `dircurv.fusion.evidence()` for the full
+statement, and inspect the weight curve on your own data rather than accepting
+any single value.
+
 ## Which path to use on grid data
 
 **Use `lattice` near boundaries.** Probe points are restricted to grid nodes, so
@@ -302,6 +333,8 @@ src/dircurv/                the library
   analytic.py               callable f, analytic geometry, 2D and 3D
   grid2d.py                 measured 2D array with a mask
   grid3d.py                 measured 3D volume with a mask
+  lattice.py                interpolation-free measurement on grid nodes
+  fusion.py                 EXPERIMENTAL convex fusion of two Hessians
   io.py                     NIfTI, MATLAB and numpy readers and writers
   __main__.py               command line
 tests/                      58 tests, including the exactness and
