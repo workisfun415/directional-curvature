@@ -6,10 +6,10 @@ authors:
     given-names: Ramakrishna
     orcid: "https://orcid.org/0009-0008-8418-1430"
     affiliation: "Independent Researcher, Suryapet, India"
-version: "0.8.0"
+version: "0.8.1"
 date-released: "2026-09-20"
 license: MIT
-doi: "10.5281/zenodo.21793101"
+doi: "10.5281/zenodo.22857969"
 repository-code: "https://github.com/workisfun415/directional-curvature"
 abstract: >-
   Reproduction code for the manuscript "Geometry, conditioning, and limits of
