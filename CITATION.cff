@@ -7,7 +7,7 @@ authors:
     orcid: "https://orcid.org/0009-0008-8418-1430"
     affiliation: "Independent Researcher, Suryapet, India"
 version: "0.8.0"
-date-released: "2026-08-06"
+date-released: "2026-09-20"
 license: MIT
 doi: "10.5281/zenodo.21793101"
 repository-code: "https://github.com/workisfun415/directional-curvature"
