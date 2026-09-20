@@ -1,0 +1,13 @@
+fatal: not a git repository (or any of the parent directories): .git
+{
+  "python": "3.12.3 (main, Mar  3 2026, 12:15:18) [GCC 13.3.0]",
+  "platform": "Linux-6.18.44-fc-v37-x86_64-with-glibc2.39",
+  "numpy": "2.4.4",
+  "scipy": "1.17.1",
+  "sympy": "1.14.0",
+  "repository_commit": "unavailable (not a git checkout)",
+  "base_seed": 20260919,
+  "mode": "full",
+  "runtime_seconds": 16.0,
+  "seed_scheme": "numpy SeedSequence([base_seed] + ord(c) for c in experiment_name)"
+}

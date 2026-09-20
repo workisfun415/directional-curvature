@@ -1,0 +1,46 @@
+[
+  {
+    "theta": 0.2,
+    "n_evaluations": 81,
+    "tangential_bias_stencil": 0.18925051830841738,
+    "tangential_bias_regression": 0.11846535893867202,
+    "tangential_var_stencil": 6.006269783369484e-06,
+    "tangential_var_regression": 2.827375486871916e-07,
+    "tangential_var_regression_mc": 2.7780198787600944e-07,
+    "variance_ratio_stencil_over_regression": 21.243268929994713,
+    "bias_ratio_stencil_over_regression": 1.597517789199372
+  },
+  {
+    "theta": 0.1,
+    "n_evaluations": 81,
+    "tangential_bias_stencil": 0.19113654168039035,
+    "tangential_bias_regression": 0.11942460563070922,
+    "tangential_var_stencil": 9.738280624139186e-05,
+    "tangential_var_regression": 4.582810083211428e-06,
+    "tangential_var_regression_mc": 4.499836895735031e-06,
+    "variance_ratio_stencil_over_regression": 21.249583655701123,
+    "bias_ratio_stencil_over_regression": 1.6004787344362885
+  },
+  {
+    "theta": 0.05,
+    "n_evaluations": 81,
+    "tangential_bias_stencil": 0.19134854095869264,
+    "tangential_bias_regression": 0.11953991144395815,
+    "tangential_var_stencil": 0.0015634642028529155,
+    "tangential_var_regression": 7.357487582743248e-05,
+    "tangential_var_regression_mc": 7.431430950049914e-05,
+    "variance_ratio_stencil_over_regression": 21.24997406071022,
+    "bias_ratio_stencil_over_regression": 1.6007084048108844
+  },
+  {
+    "theta": 0.025,
+    "n_evaluations": 81,
+    "tangential_bias_stencil": 0.19127160584704128,
+    "tangential_bias_regression": 0.11950804124655347,
+    "tangential_var_stencil": 0.025036993846746,
+    "tangential_var_regression": 0.0011782115649549584,
+    "tangential_var_regression_mc": 0.0011812805488901899,
+    "variance_ratio_stencil_over_regression": 21.249998380132293,
+    "bias_ratio_stencil_over_regression": 1.6004915138089708
+  }
+]

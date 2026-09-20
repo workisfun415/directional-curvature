@@ -1,0 +1,110 @@
+{
+  "stencils": {
+    "3pt": {
+      "moment_conditions_hold": true,
+      "beta": "1",
+      "s2": "6",
+      "s2_ray": "5"
+    },
+    "4pt": {
+      "moment_conditions_hold": true,
+      "beta": "-11/12",
+      "s2": "46",
+      "s2_ray": "42"
+    }
+  },
+  "sector_bias": {
+    "n3_nu3": {
+      "agree_with_lemma_6_2": true,
+      "derived_c": "f_333",
+      "derived_b": [
+        "3*f_133/2",
+        "3*f_233/2"
+      ],
+      "derived_T": [
+        [
+          "3*f_113 - f_333/2",
+          "3*f_123"
+        ],
+        [
+          "3*f_123",
+          "3*f_223 - f_333/2"
+        ]
+      ],
+      "mixed_factor_in_btilde_coordinates": "3*sqrt(2)/2"
+    },
+    "n3_nu4": {
+      "agree_with_lemma_6_2": true,
+      "derived_c": "f_3333",
+      "derived_b": [
+        "2*f_1333",
+        "2*f_2333"
+      ],
+      "derived_T": [
+        [
+          "6*f_1133 - f_3333",
+          "6*f_1233"
+        ],
+        [
+          "6*f_1233",
+          "6*f_2233 - f_3333"
+        ]
+      ],
+      "mixed_factor_in_btilde_coordinates": "2*sqrt(2)"
+    },
+    "n4_nu3": {
+      "agree_with_lemma_6_2": true,
+      "derived_c": "f_444",
+      "derived_b": [
+        "3*f_144/2",
+        "3*f_244/2",
+        "3*f_344/2"
+      ],
+      "derived_T": [
+        [
+          "3*f_114 - f_444/2",
+          "3*f_124",
+          "3*f_134"
+        ],
+        [
+          "3*f_124",
+          "3*f_224 - f_444/2",
+          "3*f_234"
+        ],
+        [
+          "3*f_134",
+          "3*f_234",
+          "3*f_334 - f_444/2"
+        ]
+      ],
+      "mixed_factor_in_btilde_coordinates": "3*sqrt(2)/2"
+    },
+    "n4_nu4": {
+      "agree_with_lemma_6_2": true,
+      "derived_c": "f_4444",
+      "derived_b": [
+        "2*f_1444",
+        "2*f_2444",
+        "2*f_3444"
+      ],
+      "derived_T": [
+        [
+          "6*f_1144 - f_4444",
+          "6*f_1244",
+          "6*f_1344"
+        ],
+        [
+          "6*f_1244",
+          "6*f_2244 - f_4444",
+          "6*f_2344"
+        ],
+        [
+          "6*f_1344",
+          "6*f_2344",
+          "6*f_3344 - f_4444"
+        ]
+      ],
+      "mixed_factor_in_btilde_coordinates": "2*sqrt(2)"
+    }
+  }
+}

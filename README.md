@@ -82,6 +82,18 @@ tests/test_validation.py      fast and slow (@pytest.mark.slow) tests
 * The historical uniform-cap value 0.04188 was quadrature-limited; the primary 1/24 test is the
   exact planar limit.
 
+## Section 7: radial aliasing (quadratic regression)
+
+* `paperA_validation/impl_a/regression.py` - Implementation A: transformed coordinates with the explicit
+  factorisation X = X~(theta) D_theta and the alias-moment formula (Schur complement of design moments).
+* `paperA_validation/impl_b/regression_physical.py` - Implementation B: physical coordinates only.
+* `paperA_validation/impl_b/symbolic_alias.py` - exact non-product witness for Gamma_01, Gamma_02, Gamma_12
+  (rational design, exact arithmetic) and the exact zero for the matching product design.
+* `paperA_validation/experiments/aliasing.py` - alias paths (slopes and limit coefficients) for product
+  designs with 2, 3 and 4 common radii and a non-product design; stencil vs regression on identical points.
+* `docs/Section7_radial_aliasing.md` - manuscript text of Theorem 7.1 and its proof.
+* Results: `results/aliasing.json`, `results/stencil_vs_regression.json`, `figures/fig7_aliasing.pdf`.
+
 ## Not generated here
 
 Figure 1 (geometry) and Figure 2 (sector schematic) are conceptual diagrams with no data.

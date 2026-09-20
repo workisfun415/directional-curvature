@@ -1,0 +1,83 @@
+# Paper A validation configuration.
+#
+# Two separate sections:
+#   provenance  - what the exploratory runs used. Frozen record; never edited, never executed as-is.
+#   regenerated - what this release runs. All numbers in the manuscript come from this section.
+
+provenance:
+  note: >
+    Parameters from exploratory runs, conversation of 19 Sep 2026.
+    Those runs used independent noise on every ray (no shared f(x0)) and reported
+    no bootstrap intervals. The uniform-cap value 0.04188 obtained there was limited by
+    an equal-weight, endpoint-including quadrature in cos(alpha) and is not evidence
+    against 1/24. The m=6 and m=10 design optima were numerical searches (best found).
+  constants:
+    theta: [0.1, 0.03, 0.01]
+    uniform_cap_quadrature: "400 equispaced cos(alpha) values incl. endpoints x 64 azimuths, equal weights"
+    designs: ["half axis + 12-point rim", "axis + regular pentagon"]
+    design_search: {theta: 0.03, restarts: 60, method: Nelder-Mead, m: [6, 10]}
+  p1_slopes:
+    seed: 1
+    rays: 40
+    sigma: 1.0e-7
+    mc_draws: 200
+    h_grid: "logspace(-4, 1, 80)"
+    theta: [0.4, 0.2, 0.1, 0.05, 0.025]
+    H: [[1.0, 0.3, -0.4], [0.3, -0.7, 0.5], [-0.4, 0.5, 2.0]]
+    function: "0.5 x^T H x + symmetrised random cubic"
+  p1_p2_slopes_cap_crossover:
+    seed: 2
+    rays: 40
+    mc_draws: 150
+    h_grid: "logspace(-3.5, 0.5, 60)"
+    function: "same H + symmetrised random cubic and quartic"
+    cap: {h_max: 0.02, theta_min: 0.0125}
+    crossover_sigma: [1.0e-7, 1.0e-5]
+  bias_checks:
+    p1: {seed: 5, H: identity, h: 1.0e-3, theta: [0.05, 0.01, 0.002]}
+    p2: {seed: 7, H: identity, h: 1.0e-2, theta: [0.05, 0.01, 0.002]}
+
+regenerated:
+  base_seed: 20260919
+  tolerances:
+    exact_rel: 1.0e-12          # exact-arithmetic / planar-limit constants
+    implementation_agreement: 1.0e-9
+    finite_theta_intercept_rel: 1.0e-3
+  constants:
+    n_values: [2, 3, 4]
+    theta_ladder: [0.1, 0.05, 0.025, 0.0125]
+    quadrature: {n_polar: 64, n_az: 64}
+    design_search: {n: 3, theta: 0.03, restarts: 60, m: [6, 10]}
+  bias:
+    n_values: [3, 4]
+    theta: [0.05, 0.01, 0.002]
+    h: {p1: 1.0e-3, p2: 1.0e-2}
+    parity_theta: [0.08, 0.04, 0.02]
+  montecarlo:
+    n: 3
+    rays: 40
+    H: [[1.0, 0.3, -0.4], [0.3, -0.7, 0.5], [-0.4, 0.5, 2.0]]
+    sigma: 1.0e-7
+    R: 1
+    mc_draws: 400
+    bootstrap: 400
+    theta: [0.2, 0.1, 0.05, 0.025, 0.0125]
+    slope_theta_max: 0.1        # exponent fits use the ray-noise-dominated subset
+    h_points: 41
+    h_window_decades: 1.2       # h grid centred on the predicted optimum, +/- this many decades
+    stencils: ["3pt", "4pt"]
+    noise_models: ["shared_base", "historical_independent"]
+  cap:
+    h_max: 0.02
+    theta: [0.4, 0.2, 0.1, 0.05, 0.025, 0.0125]
+  crossover:
+    sigma: [1.0e-7, 1.0e-5]
+    theta: [0.4, 0.2, 0.1, 0.05, 0.025, 0.0125]
+    usable_rel_frobenius: 0.15
+  aliasing:
+    rays: 40
+    h: 0.05
+    random_radius_range: [0.2, 2.0]
+    product_radii: [[1.0, 2.0], [0.3, 0.9, 2.0], [0.5, 1.0, 1.5, 2.0]]
+    theta: [0.1, 0.05, 0.025, 0.0125]
+    compare_theta: [0.2, 0.1, 0.05, 0.025]
