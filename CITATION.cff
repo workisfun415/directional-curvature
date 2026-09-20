@@ -6,7 +6,7 @@ authors:
     given-names: Ramakrishna
     orcid: "https://orcid.org/0009-0008-8418-1430"
     affiliation: "Independent Researcher, Suryapet, India"
-version: "1.0.0"
+version: "0.8.0"
 date-released: "2026-08-06"
 license: MIT
 doi: "10.5281/zenodo.21793101"
